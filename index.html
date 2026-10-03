@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playlist Chain - doubly linked list demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Source+Serif+4:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eef2;--ink:#14263a;--muted:#5d6f80;--card:#fff;--line:#b9c6d2;--accent:#1f6f8b;--hot:#e4572e;--head:#14263a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Source Serif 4",Georgia,serif;line-height:1.5}
+header,main{max-width:1000px;margin:0 auto;padding:24px 20px}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(2rem,6vw,3.4rem);margin:8px 0 4px;letter-spacing:-.02em}
+header p{margin:0;color:var(--muted);max-width:60ch}
+.chain{display:flex;align-items:center;overflow-x:auto;padding:28px 4px 36px;gap:0}
+.cell{display:flex;align-items:center;flex:none}
+.node{width:170px;background:var(--card);border:2px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;position:relative;transition:border-color .15s,transform .15s}
+.node:hover{border-color:var(--accent)}
+.node.playing{border-color:var(--hot);transform:translateY(-6px);box-shadow:0 8px 0 -2px var(--hot)}
+.node b{font-family:"Bricolage Grotesque",sans-serif;display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{position:absolute;top:-11px;left:10px;background:var(--head);color:#fff;font-size:.72rem;padding:1px 8px;border-radius:99px;font-family:"Bricolage Grotesque",sans-serif}
+.tag.t2{left:auto;right:10px;background:var(--accent)}
+.idx{font-size:.75rem;color:var(--muted)}
+.links{width:46px;flex:none}
+.empty{color:var(--muted);padding:30px 0}
+.bar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 18px}
+button{font:inherit;font-family:"Bricolage Grotesque",sans-serif;font-weight:500;border:2px solid var(--ink);background:var(--card);color:var(--ink);padding:8px 16px;border-radius:8px;cursor:pointer}
+button:hover{background:var(--ink);color:#fff}
+button.primary{background:var(--ink);color:#fff}
+button.primary:hover{background:var(--accent);border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+.panel h2{font-family:"Bricolage Grotesque",sans-serif;font-size:1.1rem;margin:0 0 12px}
+form{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:3px}
+input,select{font:inherit;padding:8px 10px;border:2px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);min-width:150px}
+.now{font-family:"Bricolage Grotesque",sans-serif;font-size:1.2rem}
+#msg{min-height:1.5em;color:var(--hot);margin:0 0 12px}
+table{width:100%;border-collapse:collapse}
+td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+td button{padding:3px 10px;font-size:.85rem}
+.complex td:first-child{font-family:"Bricolage Grotesque",sans-serif}
+</style>
+</head>
+<body>
+<header>
+  <h1>Playlist Chain</h1>
+  <p>A music playlist managed by a doubly linked list. Every song is a node holding links to the song before and after it, so Next and Previous follow pointers.</p>
+</header>
+<main>
+  <p class="now" id="now" aria-live="polite"></p>
+  <div class="bar">
+    <button id="prev">Previous</button>
+    <button id="next" class="primary">Next</button>
+    <button id="reverse">Reverse list</button>
+  </div>
+  <div class="chain" id="chain" aria-label="Playlist as linked nodes"></div>
+  <p id="msg" role="alert"></p>
+
+  <section class="panel">
+    <h2>Add a song</h2>
+    <form id="addForm">
+      <label>Title<input id="title" required maxlength="80"></label>
+      <label>Artist<input id="artist" maxlength="80"></label>
+      <label>Where
+        <select id="where"><option value="last">At the end</option><option value="first">At the start</option><option value="pos">At position</option></select>
+      </label>
+      <label id="posWrap" hidden>Position (from 0)<input id="pos" type="number" min="0" value="1"></label>
+      <button class="primary">Add song</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Move a song</h2>
+    <form id="moveForm">
+      <label>From position<input id="from" type="number" min="0" value="0"></label>
+      <label>To position<input id="to" type="number" min="0" value="1"></label>
+      <button>Move song</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Cost of each operation</h2>
+    <table class="complex">
+      <tr><th>Operation</th><th>Time</th></tr>
+      <tr><td>Add at start or end</td><td>O(1), head and tail pointers</td></tr>
+      <tr><td>Next / Previous</td><td>O(1), follow one pointer</td></tr>
+      <tr><td>Insert, remove or play at position</td><td>O(n), walk from the nearer end</td></tr>
+      <tr><td>Reverse</td><td>O(n), swap prev and next on every node</td></tr>
+    </table>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const arrow = `<svg class="links" viewBox="0 0 46 36" aria-hidden="true"><path d="M6 11h32m-6-5 6 5-6 5M40 25H8m6-5-6 5 6 5" fill="none" stroke="#5d6f80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json();
+  if (!r.ok) { $("msg").textContent = data.error; return null; }
+  $("msg").textContent = ""; render(data); return data;
+}
+
+function render({ size, playing, songs }) {
+  $("now").textContent = playing >= 0 ? `Now playing: ${songs[playing].title} by ${songs[playing].artist}` : "Playlist is empty. Add a song to start.";
+  if (!size) { $("chain").innerHTML = `<div class="empty">No songs yet. head and tail are both null.</div>`; return; }
+  $("chain").innerHTML = songs.map((s, i) => `
+    <div class="cell">
+      <div class="node ${i === playing ? "playing" : ""}" data-play="${i}" tabindex="0" role="button" aria-label="Play ${esc(s.title)}">
+        ${i === 0 ? '<span class="tag">head</span>' : ""}${i === size - 1 ? '<span class="tag t2">tail</span>' : ""}
+        <span class="idx">position ${i}</span>
+        <b>${esc(s.title)}</b><small>${esc(s.artist)}</small>
+        <button data-del="${i}" style="margin-top:6px;padding:2px 10px;font-size:.8rem">Remove</button>
+      </div>${i < size - 1 ? arrow : ""}
+    </div>`).join("");
+}
+
+$("chain").addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del]");
+  if (del) return api("DELETE", `/api/songs/${del.dataset.del}`);
+  const n = e.target.closest("[data-play]");
+  if (n) api("POST", `/api/play/${n.dataset.play}`);
+});
+$("chain").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.dataset.play) api("POST", `/api/play/${e.target.dataset.play}`);
+});
+$("next").onclick = () => api("POST", "/api/next");
+$("prev").onclick = () => api("POST", "/api/prev");
+$("reverse").onclick = () => api("POST", "/api/reverse");
+$("where").onchange = () => { $("posWrap").hidden = $("where").value !== "pos"; };
+$("addForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const w = $("where").value;
+  const position = w === "first" ? "first" : w === "pos" ? Number($("pos").value) : undefined;
+  const ok = await api("POST", "/api/songs", { title: $("title").value, artist: $("artist").value, position });
+  if (ok) { $("title").value = ""; $("artist").value = ""; $("title").focus(); }
+};
+$("moveForm").onsubmit = (e) => { e.preventDefault(); api("POST", "/api/move", { from: Number($("from").value), to: Number($("to").value) }); };
+api("GET", "/api/playlist");
+</script>
+</body>
+</html>
